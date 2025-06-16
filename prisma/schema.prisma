@@ -1,0 +1,92 @@
+
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
+}
+
+model RefreshToken {
+	id         String   @id @unique
+	hash       String
+	userID     String
+	userAgent  String?
+	ipAddress  String?
+	
+	user       User     @relation(fields: [userID], references: [id], onDelete: Cascade)
+
+	createdAt  DateTime @default(now())
+	updatedAt  DateTime @updatedAt
+	expiresAt  DateTime
+}
+
+model VerificationToken {
+	id         String   @id @unique
+	hash       String   @unique
+	userID     String
+
+	user       User     @relation(fields: [userID], references: [id], onDelete: Cascade)
+
+	createdAt  DateTime @default(now())
+	updatedAt  DateTime @updatedAt
+	expiresAt  DateTime
+}
+
+enum UserRole {
+	USER
+	ADMIN
+}
+
+model User {
+	id        String   @id @default(cuid())
+	role      UserRole @default(USER)
+	username  String
+	email     String   @unique
+	password  String
+	verified  Boolean  @default(false)
+
+	refreshTokens RefreshToken[]
+	verificationTokens VerificationToken[]
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model Company {
+	id        String   @id @default(cuid())
+	name      String
+	website   String?
+
+	branches  Branch[]
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model Branch {
+	id           String       @id @default(cuid())
+	adress       String
+	companyID    String
+
+	company      Company      @relation(fields: [companyID], references: [id], onDelete: Cascade)
+	pizzaEntries PizzaEntry[]
+
+	createdAt    DateTime     @default(now())
+	updatedAt    DateTime     @updatedAt
+}
+
+model PizzaEntry {
+	id        String   @id @default(cuid())
+	date      DateTime
+	quantity  Float
+	rating    Float?
+	notes     String?
+	branchID  String?
+
+	branch    Branch?  @relation(fields: [branchID], references: [id])
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
