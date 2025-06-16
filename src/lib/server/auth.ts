@@ -19,27 +19,24 @@ export type AccessTokenPayload = {
 
 // --------------------> Errors
 
-export class ValidationError extends Error {
+export class AuthError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = 'ValidationError';
 	}
 }
 
-// --------------------> Util Functions
-
-function generateToken() {
+// Utility
+export function generateToken() {
 	return crypto.randomBytes(32).toString('base64url');
 }
 
-function deriveTokenID(token: string) {
+export function deriveTokenID(token: string) {
 	return crypto
 		.createHmac('sha256', HMAC_SECRET)
 		.update(token)
 		.digest('base64url');
 }
-
-// --------------------> Token Functions
 
 // Verification Tokens
 export async function createVerificationToken(user: User) {
@@ -56,48 +53,7 @@ export async function createVerificationToken(user: User) {
 		}
 	});
 
-	log.debug({ userID: user.id, newRefreshTokenID: newVerificationTokenID }, 'New verification token created');
 	return newVerificationToken;
-}
-
-export async function useVerificationToken(token: string, deleteAfterUse: boolean = true): Promise<VerificationToken & { user: User }> {
-	const tokenID = deriveTokenID(token);
-	const data = await prisma.verificationToken.findUnique({
-		where: { id: tokenID },
-		include: { user: true }
-	});
-
-	// Check if the verification token exists in the database
-	if (!data) {
-		log.warn({ token }, 'Verification token not found in database');
-		throw new ValidationError('Verification token not found');
-	}
-	
-	log.debug({ id: data.id }, 'Verification token found in database');
-
-	// Verify the token hash
-	const isValid = await argon2.verify(data.hash, token);
-	if (!isValid) {
-		log.warn('Invalid verification token provided');
-		throw new ValidationError('Invalid verification token provided');
-	}
-
-	// Check if the verification token is expired
-	const isExpired = data.expiresAt < new Date();
-	if (isExpired) {
-		log.warn('Expired verification token provided');
-		await prisma.verificationToken.delete({ where: { id: tokenID } });
-		log.debug({ id: tokenID }, 'Verification token deleted from database');
-		throw new ValidationError('Expired verification token provided');
-	}
-
-	// Delete the verification token after use
-	if (deleteAfterUse) {
-		await prisma.verificationToken.delete({ where: { id: tokenID } });
-		log.debug({ id: tokenID }, 'Verification token deleted from database');
-	}
-
-	return data;
 }
 
 // Refresh Tokens
@@ -117,7 +73,6 @@ export async function createRefreshToken(user: User, userAgent: string | null, i
 		}
 	});
 
-	log.debug({ userID: user.id, newRefreshTokenID }, 'New refresh token created');
 	return newRefreshToken;
 }
 
@@ -134,8 +89,6 @@ export async function useRefreshToken(token: string, deleteAfterUse: boolean = t
 		throw new ValidationError('Refresh token not found');
 	}
 
-	log.debug({ id: data.id }, 'Refresh token found in database');
-
 	// Verify the token hash
 	const isValid = await argon2.verify(data.hash, token);
 	if (!isValid) {
@@ -148,14 +101,12 @@ export async function useRefreshToken(token: string, deleteAfterUse: boolean = t
 	if (isExpired) {
 		log.warn('Expired refresh token provided');
 		await prisma.refreshToken.delete({ where: { id: tokenID } });
-		log.debug({ id: tokenID }, 'Refresh token deleted from database');
 		throw new ValidationError('Expired refresh token provided');
 	}
 
 	// Delete the refresh token after use
 	if (deleteAfterUse) {
 		await prisma.refreshToken.delete({ where: { id: tokenID } });
-		log.debug({ id: tokenID }, 'Refresh token deleted from database');
 	}
 
 	return data;
@@ -169,7 +120,6 @@ export function createAccessToken(user: User) {
 		{ expiresIn: 60 * 15 } // 15 minutes
 	);
 
-	log.debug({ userID: user.id }, 'New access token created');
 	return token;
 }
 
@@ -185,89 +135,35 @@ export function decodeAccessToken(token: string): AccessTokenPayload {
 	}
 }
 
-// ---------------------> Actions
+// Actions
+export async function login(event: RequestEvent, user: User) {
 
-/**
- * Registers a new user in the database.
- * **This function does NOT check credentials or permissions.**
- * @param username The username of the new user.
- * @param email The email of the new user.
- * @param password The unhashed password of the new user.
- */
+	// Create new tokens
+	const userAgent = event.request.headers.get('user-agent');
+	const ipAdress = event.getClientAddress()
+	const accessToken = createAccessToken(user);
+	const refreshToken = await createRefreshToken(user, userAgent, ipAdress);
 
-export async function register(username: string, email: string, password: string) {
-	const user = await prisma.user.create({
-		data: {
-			username, email,
-			password: await argon2.hash(password)
-		}
+	// Set cookies
+	event.cookies.set('access_token', accessToken, {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'lax',
+		secure: true,
+		maxAge: 60 * 15 // 15 minutes
 	});
 
-	log.debug({ userId: user.id }, 'New user created in database');
-	log.info({ userId: user.id }, 'User registered successfully');
-	return user;
-}
+	event.cookies.set('refresh_token', refreshToken, {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'strict',
+		secure: true,
+		maxAge: 60 * 60 * 24 * 7 // 7 days
+	});
 
-/**
- * Sends a verification email to the user with a verification link.
- * **This function does NOT check credentials or permissions.**
- * @param user The user object to send the verification email to.
- */
-
-export async function sendVerificationEmail(user: User) {
-	const verificationToken = await createVerificationToken(user);
-	const verificationUrl = `${APP_URL}/auth/verify?token=${verificationToken}`;
-	await sendEmail(user.email, 'Verify your email', verificationTemplate(user.username, verificationUrl));
-	log.info({ userId: user.id, email: user.email }, 'Verification email sent');
-}
-
-/**
- * Logs a user in by setting new access and refresh tokens in their cookies.
- * **This function does NOT check credentials or permissions.**
- * @param event The request event containing the cookies and headers.
- * @param user The user object to log in.
- * @param rotateTokens Whether to create new tokens or use existing ones. Defaults to true.
- */
-
-export async function login(event: RequestEvent, user: User, rotateTokens: boolean = true) {
-
-	if (rotateTokens) {
-
-		// Create new tokens
-		const accessToken = createAccessToken(user);
-		const newRefreshToken = await createRefreshToken(
-			user, 
-			event.request.headers.get('user-agent'),
-			event.getClientAddress()
-		);
-
-		// Set cookies
-		event.cookies.set('access_token', accessToken, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: true,
-			maxAge: 60 * 15 // 15 minutes
-		});
-
-		event.cookies.set('refresh_token', newRefreshToken, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'strict',
-			secure: true,
-			maxAge: 60 * 60 * 24 * 7 // 7 days
-		});
-	}
-
+	// Set locals
 	event.locals.user = user;
-	log.info({ userId: user.id }, 'User logged in successfully');
 }
-
-/**
- * Logs a user out by deleting their access and refresh tokens from cookies.
- * **This function does NOT check credentials or permissions.**
- * @param event The request event containing the cookies.
- */
 
 export async function logout(event: RequestEvent) {
 
@@ -280,29 +176,100 @@ export async function logout(event: RequestEvent) {
 
 	// Delete the refresh token from the database
 	if (refreshToken) {
-
+	
 		// Find the matching token in the database
 		const refreshTokenID = deriveTokenID(refreshToken);
-		const refreshTokenRecord = await prisma.refreshToken.findUnique({
+		const refreshTokenData = await prisma.refreshToken.findUnique({
 			where: { id: refreshTokenID },
 			include: { user: true }
 		});
-
-		if (!refreshTokenRecord) {
+	
+		if (!refreshTokenData) {
 			log.warn({ refreshTokenID }, 'Logout attempt with non-existent refresh token');
 			return;
 		}
-
+	
 		// Validate the refresh token
-		const isValid = await argon2.verify(refreshTokenRecord.hash, refreshToken);
+		const isValid = await argon2.verify(refreshTokenData.hash, refreshToken);
 		if (!isValid) {
 			log.warn({ refreshTokenID }, 'Logout attempt with invalid refresh token');
 			return;
 		}
 
+		// Check if user and token match
+		if (event.locals.user && event.locals.user.id !== refreshTokenData.user.id) {
+			log.warn({ userId: event.locals.user.id, refreshTokenID }, 'Logout attempt with mismatched refresh token');
+			return;
+		}
+	
 		// Delete the refresh token from the database
 		await prisma.refreshToken.delete({ where: { id: refreshTokenID } });
-		log.debug({ refreshTokenID }, 'Refresh token deleted from database');
-		log.info({ userId: refreshTokenRecord.user.id }, 'User logged out successfully');
+		log.info({ userId: refreshTokenData.user.id }, 'User logged out successfully');
 	}
+}
+
+export async function verify(event: RequestEvent) {
+
+	const verificationToken = event.url.searchParams.get('token')
+	if (!verificationToken) {
+		log.warn('No verification token provided');
+		throw new AuthError('No verification token provided');
+	}
+
+	// Derive the database ID for the verification token
+	const verificationTokenID = deriveTokenID(verificationToken);
+	const verificationTokenData = await prisma.verificationToken.findUnique({
+		where: { id: verificationTokenID },
+		include: { user: true }
+	});
+	
+	// Check if the verification token exists in the database
+	if (!verificationTokenData) {
+		log.warn({ tokenID: verificationTokenID }, 'Verification token not found in database');
+		throw new AuthError('Invalid verification token provided');
+	}
+
+	// Verify the token hash
+	const isValid = await argon2.verify(verificationTokenData.hash, verificationToken);
+	if (!isValid) {
+		log.warn({ tokenID: verificationTokenID }, 'Invalid verification token provided');
+		throw new AuthError('Invalid verification token provided');
+	}
+
+	// Delete the verification token
+	await prisma.verificationToken.delete({ where: { id: verificationTokenID } });
+	
+	// Check if the verification token is expired
+	const isExpired = verificationTokenData.expiresAt < new Date();
+	if (isExpired) {
+		log.warn({ token: verificationToken }, 'Expired verification token provided');
+		throw new AuthError('Expired verification token provided');
+	}
+	
+	// Verify the user
+	await prisma.user.update({
+		where: { id: verificationTokenData.userID },
+		data: { verified: true }
+	});
+
+	// Log in if not already
+	if (event.locals.user != verificationTokenData.user) {
+		if (event.locals.user)
+			await logout(event);
+		await login(event, verificationTokenData.user);
+	}
+}
+
+
+/**
+ * Sends a verification email to the user with a verification link.
+ * **This function does NOT check credentials or permissions.**
+ * @param user The user object to send the verification email to.
+ */
+
+export async function sendVerificationEmail(user: User) {
+	const verificationToken = await createVerificationToken(user);
+	const verificationUrl = `${APP_URL}/auth/verify?token=${verificationToken}`;
+	await sendEmail(user.email, 'Verify your email', verificationTemplate(user.username, verificationUrl));
+	log.info({ userId: user.id, email: user.email }, 'Verification email sent');
 }

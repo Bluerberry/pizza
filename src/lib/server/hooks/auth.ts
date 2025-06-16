@@ -29,7 +29,6 @@ export const auth: Handle = async ({ event, resolve }) => {
 					throw new Error('User not found');
 				}
 
-				log.debug({ userID }, 'User found in database');
 				await login(event, user, false);
 				return resolve(event);
 			}

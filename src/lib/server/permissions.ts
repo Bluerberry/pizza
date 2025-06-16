@@ -4,20 +4,24 @@ import type { User } from "@prisma/client";
 
 export enum Permission {
 	STRANGER = 0,
-	UNVERIFIED = 1,
 	USER = 2,
 	ADMIN = 3
 }
 
-export function hasPermission(user: User | null, min: Permission, max: Permission = Permission.ADMIN): boolean {
-	
-	// Find user permissions
-	let userPermissions: Permission;
-	if (!user) userPermissions = Permission.STRANGER;
-	else if (user.role === UserRole.ADMIN) userPermissions = Permission.ADMIN;
-	else if (!user.verified) userPermissions = Permission.UNVERIFIED;
-	else userPermissions = Permission.USER;
+function getPermissions(user: User | null) {
+	if (!user) {
+		return Permission.STRANGER;
+	} else if (user.role === UserRole.ADMIN) {
+		return Permission.ADMIN;
+	} else {
+		return Permission.USER;
+	}
+}
 
-	// Check if user has the required permissions
-	return userPermissions >= min && userPermissions <= max;
+export function hasAtLeastPermission(user: User | null, permission: Permission): boolean {
+	return getPermissions(user) >= permission;
+}
+
+export function hasExactlyPermission(user: User | null, permission: Permission): boolean {
+	return getPermissions(user) == permission;
 }
