@@ -1,6 +1,6 @@
 
+import log from '$lib/server/log';
 import nodemailer from 'nodemailer';
-import log from '$lib/server/logging';
 import { GMAIL_USER, GMAIL_APP_PASSWORD } from '$env/static/private';
 
 const transporter = nodemailer.createTransport({
@@ -12,9 +12,10 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendEmail(to: string, subject: string, html: string) {
+
 	try {
 		await transporter.sendMail({
-			from: `"Bram Kreulen" <${GMAIL_USER}>`, // Use your app name and email
+			from: GMAIL_USER,
 			to, subject, html
 		});
 
@@ -28,65 +29,40 @@ export async function sendEmail(to: string, subject: string, html: string) {
 export const verificationTemplate = (username: string, verificationUrl: string) => `
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset="UTF-8" />
-		<title>Verify Your Email</title>
-		<style>
-			body {
-				font-family: sans-serif;
-				background-color: #ffffff;
-				color: #0C101D;
-				padding: 20px;
-				margin: 0;
-			}
-			p {
-				margin: 0;
-				width: 100%;
-			}
-			.container {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				background-color: #fafaff;
-				max-width: 600px;
-				margin: 0 auto;
-				padding: 30px;
-				border-radius: 8px;
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-			}
-			.button {
-				display: inline-block;
-				margin: 20px 0;
-				padding: 12px 24px;
-				color: #FAFAFF;
-				text-decoration: none;
-				background-color: #0C101D;
-				border-radius: 6px;
-				font-weight: bold;
-			}
-			.footer {
-				margin-top: 30px;
-				font-size: 12px;
-				color: rgba(12, 16, 29, 0.5);
-				text-align: center;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="container">
-			<h2> Welcome friend ❤️ </h2>
-			<p>
-				Hi ${username}, <br />
-				Thanks for signing up! To complete your registration, please verify your
-				email address by clicking the button below.
-			</p>
-			<a href="${verificationUrl}" class="button">Verify Email</a>
-			<p>
-				Or manually visit this link <br />
-				<a href="${verificationUrl}">${verificationUrl}</a>
-			</p>
-			<p class="footer">This link will expire in 30 minutes for your security.</p>
-		</div>
-	</body>
+<head>
+	<meta charset="UTF-8" />
+	<title>Verify Your Email</title>
+</head>
+<body style="margin:0; padding:20px; font-family: Arial, sans-serif; background-color:#ffffff; color:#0C101D;">
+	<table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#ffffff">
+		<tr><td align="center">
+	  		<table width="600" border="0" cellspacing="0" cellpadding="0" bgcolor="#fafaff" style="border-radius:8px; padding:30px;">
+				<tr><td align="center" style="font-size:24px; font-weight:bold; padding-bottom:20px;">
+					Welcome friend ❤️
+		  		</td></tr>
+				<tr><td style="font-size:16px; line-height:24px; padding-bottom:20px;">
+					Hi ${username}, <br />
+					Thanks for signing up! To complete your registration, please verify your
+					email address by clicking the button below.
+		  		</td></tr>
+				<tr><td align="center" style="padding-bottom:20px;">
+					<a 
+						href="${verificationUrl}" 
+						style="display:inline-block; padding:12px 24px; background-color:#0C101D; color:#FAFAFF; text-decoration:none; font-weight:bold; border-radius:6px;"
+					>
+						Verify Email
+					</a>
+				</td></tr>
+				<tr><td style="font-size:14px; line-height:20px; padding-bottom:20px;">
+					Or manually visit this link <br />
+					<a href="${verificationUrl}" style="word-break:break-all;">${verificationUrl}</a>
+				</td></tr>
+				<tr><td align="center" style="font-size:12px; color:#7f8491; padding-top:20px;">
+					This link will expire in 30 minutes for your security.
+				</td></tr>
+	  		</table>
+		</td></tr>
+	</table>
+</body>
 </html>
 `;

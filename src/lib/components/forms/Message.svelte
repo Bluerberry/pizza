@@ -2,15 +2,17 @@
 <script lang="ts">
 
 	import { getContext } from "svelte";
-	import type { Writable } from "svelte/store";
+	import type { SuperForm } from "sveltekit-superforms";
 
 	let { ...others } = $props();
-	const formMessage: Writable<any> = getContext("formMessage");
+	
+	const superform: SuperForm<any> = getContext("superform");
+	const { message } = superform;
 
 </script>
 
 <span class="message" {...others}>
-	{$formMessage}
+	{$message}
 </span>
 
 <style lang="scss">

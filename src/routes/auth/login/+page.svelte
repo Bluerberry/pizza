@@ -2,7 +2,7 @@
 <script lang="ts">
 
 	import { loginSchema } from '$lib/schemas/authSchemas';
-	import * as Form from '$lib/components/form';
+	import * as Form from '$lib/components/forms';
 
 	let { data } = $props();
 
@@ -30,9 +30,19 @@
 	@use '$lib/styles/variables' as *;
 	@use '$lib/styles/themes' as *;
 
+	:global(.login-form) {
+		display: flex;
+		flex-flow: column nowrap;
+		justify-content: center;
+
+		width: 100%;
+		height: 100%;
+		max-width: 450px;
+	}
+
 	h2 {
 		font-size: $xxl-font;
-		font-family: 'Brittany', 'Noto Sans', sans-serif;
+		font-family: $stylized-fontstack;
 	}
 
 	.fields {
@@ -46,16 +56,8 @@
 		flex-flow: row nowrap;
 		align-items: center;
 		gap: 1rem;
-	}
 
-	:global(.login-form) {
-		display: flex;
-		flex-flow: column nowrap;
-		justify-content: center;
-
-		width: 100%;
-		height: 100%;
-		max-width: 450px;
+		margin-top: 1rem;
 	}
 
 	@include themed() {

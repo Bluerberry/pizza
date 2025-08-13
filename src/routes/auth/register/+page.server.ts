@@ -1,19 +1,17 @@
 
-import argon2 from 'argon2';
+import log from '$lib/server/log';
+import prisma from '$lib/server/prisma';
 import { redirect } from '@sveltejs/kit';
 import { zod } from 'sveltekit-superforms/adapters';
-import { superValidate, message } from 'sveltekit-superforms';
-
-import log from '$lib/server/logging';
-import prisma from '$lib/server/prisma';
 import { registerSchema } from '$lib/schemas/authSchemas';
-import { createAccessToken, createRefreshToken } from '$lib/server/auth';
+import { superValidate, message } from 'sveltekit-superforms';
+import { AuthError, login, register } from '$lib/server/auth';
 
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.user) {
-		throw redirect(303, '/');
+		redirect(303, '/');
 	}
 
 	return {
@@ -22,7 +20,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals, cookies, getClientAddress }) => {
+	default: async event => {
+		const { request, locals } = event;
 
 		// Validate form using Zod
 		const form = await superValidate(request, zod(registerSchema));
@@ -33,7 +32,7 @@ export const actions: Actions = {
 
 		// Cannot register while logged in
 		if (locals.user) {
-			log.warn({ userId: locals.user?.id }, 'User is already logged in, cannot register');
+			log.warn({ userID: locals.user?.id }, 'User is already logged in, cannot register');
 			return message(form, 'You cannot register while logged in', { status: 403 });
 		}
 
@@ -46,50 +45,21 @@ export const actions: Actions = {
 				return message(form, 'Email already exists', { status: 400 });
 			}
 
-			// Register user
-			const user = await prisma.user.create({
-				data: {
-					username: form.data.username,
-					email: form.data.email,
-					password: await argon2.hash(form.data.password)
-				}
-			});
-
-			// Create new tokens
-			const userAgent = request.headers.get('user-agent');
-			const ipAdress = getClientAddress()
-			const accessToken = createAccessToken(user);
-			const refreshToken = await createRefreshToken(user, userAgent, ipAdress);
-		
-			// Set cookies
-			cookies.set('access_token', accessToken, {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: true,
-				maxAge: 60 * 15 // 15 minutes
-			});
-		
-			cookies.set('refresh_token', refreshToken, {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'strict',
-				secure: true,
-				maxAge: 60 * 60 * 24 * 7 // 7 days
-			});
-		
-			// Set locals
-			locals.user = user;
-
-			// Send user to verification
-			throw redirect(303, 'auth/verify');
+			// Register & login
+			const user = await register(form.data.username, form.data.email, form.data.password);
+			await login(event, user);
 
 		} catch (error) {
-
-			const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-			log.error({ error: errorMessage }, 'Error during registration');
-			return message(form, errorMessage, { status: 500 });
-
+			if (error instanceof AuthError) {
+				return message(form, error.message, { status: error.status });
+			} else {
+				const errorMessage = error instanceof Error ? error.message : error;
+				log.error({ error: errorMessage }, 'Error during login');
+				return message(form, errorMessage, { status: 500 });
+			}
 		}
+
+		// Send user to verification
+		redirect(303, '/auth/verify');
 	}
 };

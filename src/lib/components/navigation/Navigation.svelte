@@ -4,6 +4,7 @@
 	import Searchbar from "$lib/components/Searchbar.svelte";
 	import { Navitem } from "$lib/components/navigation";
 
+    import type { Permission } from "$lib/scripts/permissions";
 	import type { NavitemData } from "$lib/components/navigation";
 
 	function cullTree(tree: NavitemData[], query: string): NavitemData[] {
@@ -16,6 +17,7 @@
 		if (!query) return item;
 		const formattedQuery = query.toLowerCase().trim();
 
+		// Cull paths whose label doesnt match query
 		if (item.path) {
 			const formattedLabel = item.label.toLowerCase().trim();
 			if (formattedLabel.includes(formattedQuery)) {
@@ -23,6 +25,7 @@
 			}
 		}
 
+		// Cull folders whose children were culled
 		else if (item.children) {
 			const children = cullTree(item.children, query)
 			if (children.length > 0) {
@@ -43,8 +46,14 @@
 		return 0;
 	}
 
-	type Props = { tree: NavitemData[]; }
-	let { tree }: Props = $props();
+	type Props = { 
+		tree: NavitemData[]; 
+		permissions: Permission;
+	}
+	let { 
+		tree,
+		permissions
+	}: Props = $props();
 
 	let query = $state('');
 
@@ -61,7 +70,7 @@
 	{#if culledSize}
 		<nav>
 			{#each culledTree as item}
-				<Navitem data={item} />
+				<Navitem data={item} {permissions} />
 			{/each}
 		</nav>
 
@@ -86,6 +95,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+
+		min-width: 12rem;
 	
 		.hidden-items {
 			font-size: $s-font;
@@ -94,7 +105,7 @@
 
 	@include themed() {
 		.hidden-items {
-			color: rgba(pick('foreground'), 50%);
+			color: pick('muted');
 		}
 	}
 

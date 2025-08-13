@@ -1,40 +1,43 @@
 
 <script lang="ts">
 
-	import { ChevronDown, ChevronRight } from "@lucide/svelte";
-	import { Navitem } from "$lib/components/navigation";
-	import { slide } from "svelte/transition";
 	import { page } from "$app/state";
+	import { slide } from "svelte/transition";
+	import { Navitem } from "$lib/components/navigation";
+	import { ChevronRight } from "@lucide/svelte";
+    import { Permission } from "$lib/scripts/permissions";
 
 	import type { NavitemData } from "$lib/components/navigation";
 
-	type Props = { data: NavitemData};
-	let { data }: Props = $props();
+	type Props = { 
+		data: NavitemData;
+		permissions: Permission;
+	};
+	let { 
+		data,
+		permissions
+	}: Props = $props();
 
 	const current = $derived(page.url.pathname === data.path);
-	let open = $state(true);
+	let open = $state(false);
 
 </script>
 
-{#if data.path}
-	<a href={data.path} class="navitem" class:current> {data.label} </a>
-{:else if data.children}
-	<button onclick={() => open = !open} class="navitem" >
+{#if !data.permissions || data.permissions <= permissions}
+	{#if data.path}
+		<a href={data.path} class="navitem" class:current> {data.label} </a>
+	{:else if data.children}
+		<button onclick={() => open = !open} class="navitem" class:open>
+			<ChevronRight /> {data.label}
+		</button>
+
 		{#if open}
-			<ChevronDown />
-		{:else}
-			<ChevronRight />
+			<div class="children" transition:slide={{ duration: 200 }}>
+				{#each data.children as child}
+					<Navitem data={child} {permissions} />
+				{/each}
+			</div>
 		{/if}
-
-		{data.label}
-	</button>
-
-	{#if open}
-		<div class="children" transition:slide={{ duration: 150 }}>
-			{#each data.children as child}
-				<Navitem data={child} />
-			{/each}
-		</div>
 	{/if}
 {/if}
 
@@ -53,13 +56,12 @@
 		padding: 0.25rem;
 		padding-left: 2 * $icon-padding + $icon-size;
 
-		border: none;
+		text-align: left;
+		font-size: $m-font;
 
 		cursor: pointer;
-		text-align: left;
-		text-decoration: none;
-		font-size: $m-font;
-		background: transparent;
+		user-select: none;
+		caret-color: transparent;
 
 		:global(.lucide) {
 			position: absolute;
@@ -71,18 +73,22 @@
 			height: $icon-size;
 			pointer-events: none;
 		}
-	}
 
-	a:hover, a:focus {
-		text-decoration: underline;
+		&.open :global(.lucide) {
+			rotate: 90deg;
+		}
+
+		&:hover, &:focus {
+			text-decoration: underline;
+		}
 	}
 
 	.current::before {
 		content: '';
 		position: absolute;
 		translate: 0 -50%;
-		left: $icon-padding + math.div($icon-size, 2);
 		top: 50%;
+		left: $icon-padding + math.div($icon-size, 2);
 
 		width: 0px;
 		height: 0px;
@@ -99,12 +105,12 @@
 		}
 
 		.current::before {
-			border: 2px solid pick('foreground');
-			background-color: pick('foreground');
+			border: 2px solid pick('accent');
+			background-color: pick('accent');
 		}
 
 		.children {
-			border-left: 1px solid rgba(pick('foreground'), 50%);
+			border-left: 1px solid pick('muted');
 		}
 	}
 

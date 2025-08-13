@@ -1,5 +1,5 @@
 
-import log from '$lib/server/logging';
+import log from '$lib/server/log';
 import type { Handle } from '@sveltejs/kit';
 
 export const logging: Handle = async ({ event, resolve }) => {
@@ -7,7 +7,7 @@ export const logging: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
 	const duration = Date.now() - start;
 
-	log.info({
+	log.debug({
 		method: event.request.method,
 		path: event.url.pathname,
 		status: response.status,

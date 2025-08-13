@@ -1,7 +1,7 @@
 
 <script lang="ts">
-	import { Search } from "@lucide/svelte";
 
+	import { Search } from "@lucide/svelte";
 
 	let {
 		placeholder = "Search...",
@@ -28,11 +28,7 @@
 			padding: $input-thin-padding 0;
 			padding-right: 2 * $icon-padding + $icon-size;
 
-			border: none;
-			outline: none;
-
 			font-size: $m-font;
-			background: transparent;
 		}
 
 		:global(.lucide) {
@@ -57,7 +53,7 @@
 				color: pick('foreground');
 
 				&::placeholder {
-					color: rgba(pick('foreground'), 50%);
+					color: pick('muted');
 				}
 
 				&:focus, &:hover {
@@ -68,7 +64,7 @@
 			}
 
 			:global(.lucide) {
-				color: rgba(pick('foreground'), 50%);
+				color: pick('muted');
 			}
 		}
 	}

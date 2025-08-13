@@ -1,19 +1,19 @@
 
 <script lang="ts">
 
-    import Signature from './components/Signature.svelte';
+    import Signature from './Signature.svelte';
 
 </script>
 
 <header>
-    <Signature />
+    <Signature class="title" />
 </header>
 
 <style lang="scss">
 
     header {
-        width: 100%;
-        height: 10rem;
+        width: 50%;
+        max-width: 18rem;
     }
-
+    
 </style>

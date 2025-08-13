@@ -47,40 +47,39 @@
 				// Remove the glow filter
 				selection.attr('filter', null);
 
-				// Flicker on
-				selection
-					.transition()
-					.duration(55)
-					.ease(d3.easePoly.exponent(7))
-					.style('opacity', 1)
-					.on('end', () => {
+				// After delay flicker on
+				setTimeout(() => {
+					selection
+						.transition()
+						.duration(55)
+						.ease(d3.easePoly.exponent(7))
+						.style('opacity', 1)
+						.on('end', () => {
 
-						// This event is called for every element in the selection,
-						// so we need to keep track if ALL elements have been processed.
-						index--;
-						if (index > 0) return;
-						index = selectionSize;
+							// This event is called for every element in the selection,
+							// so we need to keep track if ALL elements have been processed.
+							index--;
+							if (index > 0) return;
+							index = selectionSize;
 
-						// Reapply the glow filter
-						selection.attr('filter', 'url(#glow)');
+							// Reapply the glow filter
+							selection.attr('filter', 'url(#glow)');
 
-						// Repeat flicker until iterations are reached
-						if (n >= iterations) return;
-						setTimeout(
-							() => flicker(selection, iterations, n + 1),
-							(iterations - n) * random(50, 150)
-						);
-					});
+							// After delay flicker off
+							if (n >= iterations) return;
+							setTimeout(
+								() => flicker(selection, iterations, n + 1),
+								n * random(50, 150) // Time on (increasing)
+							);
+						});
+					},
+					(iterations - n) * random(50, 150) // Time off (decreasing)
+				);
 			});
 	}
 
 	function neon(node: SVGElement, paths: string[]) {
-		let flickerTimer: NodeJS.Timeout | undefined = undefined;
-
 		const svg = d3.select(node)
-			.attr('viewBox', '0 0 1024 1024')
-			.attr('transform', 'scale(4, 4)')
-			.style('overflow', 'visible');
 
 		// Create gaussian blur filter
 		const filter = svg.append('defs')
@@ -111,17 +110,18 @@
 				.style('opacity', 0.3)
 
 		// Flicker a random path at random intervals
+		let flickerTimer: NodeJS.Timeout | undefined = undefined;
 		function flickerRandomPath() {
 			const index = Math.floor(Math.random() * paths.length);
 			pathSelection
 				.filter((_, i) => i === index)
-				.call(flicker, Math.floor(random(2, 6)));
+				.call(flicker, Math.floor(random(1, 3)));
 
 			flickerTimer = setTimeout(flickerRandomPath, random(4000, 10000));
 		}
 
 		// Start animating
-		setTimeout(() => flicker(pathSelection, 4), 1000);
+		setTimeout(() => flicker(pathSelection, 3), 800);
 		flickerTimer = setTimeout(flickerRandomPath, 8000);
 
 		// Cleanup
@@ -138,10 +138,10 @@
 </script>
 
 {#await loadSvgPaths() then paths}
-	<svg {...others} use:neon={paths}></svg>
+	<svg viewBox="227.62 425.13 581.9 180.37" {...others} use:neon={paths}></svg>
 {:catch error}
-	<div class="failed">
-		<p> Failed to load brain.svg </p>
+	<div class="failed" {...others}>
+		<h1> Bram Kreulen </h1>
 		<p> {error} </p>
 	</div>
 {/await}
@@ -149,17 +149,38 @@
 <style lang="scss">
 	
 	@use '$lib/styles/themes' as *;
+	@use '$lib/styles/variables' as *;
 
 	svg {
 		display: block;
-		width: 100%;
-		height: 100%;
+		overflow: visible;
+
+		:global(path) {
+			fill: none;
+		}
+	}
+
+	.failed {
+		h1 {
+			font-family: $stylized-fontstack;
+		}
+
+		p {
+			font-size: $xs-font;
+		}
 	}
 
 	@include themed() {
 		svg :global(path) {
 			stroke: pick('accent');
-			fill: none;
+		}
+
+		h1 {
+			color: pick('accent')
+		}
+
+		p {
+			color: pick('muted')
 		}
 	}
 
