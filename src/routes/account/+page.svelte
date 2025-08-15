@@ -8,7 +8,6 @@
 	import Button from '$lib/components/Button.svelte';
 
     import { Crown, ShieldCheck, ShieldQuestion } from '@lucide/svelte';
-    import { Permission } from '$lib/scripts/permissions';
     import { UserRole } from '@prisma/client';
 
 	let { data } = $props();
@@ -23,7 +22,7 @@
 </script>
 
 <div>
-	<h2>Account Settings</h2>
+	<h1>Account Settings</h1>
 
 	<section>
 		<h3> Personalia </h3>
@@ -195,7 +194,7 @@
 	@use '$lib/styles/themes' as *;
 	@use 'sass:math';
 
-	h2 {
+	h1 {
 		font-size: $xxl-font;
 		font-family: $stylized-fontstack;
 	}
@@ -255,7 +254,7 @@
 	}
 
 	@include themed() {
-		h2, b {
+		h1, b {
 			color: pick('accent');
 		}
 

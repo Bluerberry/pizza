@@ -96,6 +96,7 @@
 	.layout {
 		display: flex;
 		flex-flow: row nowrap;
+		justify-content: center;
 
 		width: 100%;
 		height: 100%;
@@ -110,7 +111,8 @@
 		align-items: center;
 
 		width: 100%;
-		padding: 0 5rem;
+		max-width: 48rem;
+		margin-left: 6rem;
 	}
 
 	.gutter {

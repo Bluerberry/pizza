@@ -1,8 +1,8 @@
 
 <script lang="ts">
 
-	import { X } from "@lucide/svelte";
-    import { getContext } from "svelte";
+	import { getContext } from "svelte";
+	import { CloudUpload, X } from "@lucide/svelte";
 	
     import type { SuperForm } from "sveltekit-superforms";
 
@@ -92,6 +92,8 @@
 	ondrop={handleDrop}
 	bind:this={dropzone}
 >
+
+	<CloudUpload />
 	{label}
 
 	<input 
@@ -149,6 +151,11 @@
 		caret-color: transparent;
 
 		transition: all $transition;
+
+		:global(.lucide) {
+			width: $xl-font;
+			height: $xl-font;
+		}
 
 		.errors {
 			font-size: $s-font;
